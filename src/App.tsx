@@ -1,43 +1,50 @@
 import React from 'react'
-import { Routes, Route, Link } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import AdminDashboard from './pages/AdminDashboard'
+import Cart from './pages/Cart'
+import Checkout from './pages/Checkout'
+import Profile from './pages/Profile'
+import ProductForm from './pages/ProductForm'
+import ProductDetails from './pages/ProductDetails'
 import UserRoute from './routes/UserRoute'
 import AdminRoute from './routes/AdminRoute'
+import Navbar from './components/Navbar'
+import { CartProvider } from './context/CartContext'
 
 const App: React.FC = () => {
   return (
-    <div>
-      <nav className="p-4 border-b">
-        <Link to="/" className="mr-4">Store</Link>
-        <Link to="/admin" className="mr-4">Admin</Link>
-        <Link to="/login">Login</Link>
-      </nav>
+    <CartProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <Toaster position="top-right" />
+        <main>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/product/:id" element={<ProductDetails />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-      <main>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
+            <Route element={<UserRoute />}>
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
 
-          {/* User protected routes (placeholders) */}
-          <Route element={<UserRoute />}>
-            <Route path="/cart" element={<div className="p-4">Cart (protected)</div>} />
-            <Route path="/checkout" element={<div className="p-4">Checkout (protected)</div>} />
-            <Route path="/profile" element={<div className="p-4">Profile (protected)</div>} />
-          </Route>
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/product/new" element={<ProductForm />} />
+              <Route path="/admin/product/edit/:id" element={<ProductForm />} />
+            </Route>
 
-          {/* Admin protected routes */}
-          <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/product/new" element={<div className="p-4">New Product</div>} />
-            <Route path="/admin/product/edit/:id" element={<div className="p-4">Edit Product</div>} />
-          </Route>
-
-          <Route path="*" element={<div className="p-4">Not Found</div>} />
-        </Routes>
-      </main>
-    </div>
+            <Route path="*" element={<div className="p-4">Not Found</div>} />
+          </Routes>
+        </main>
+      </div>
+    </CartProvider>
   )
 }
 

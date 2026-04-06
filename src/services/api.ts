@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'
+// Prefer Vite env `VITE_API_BASE_URL` (e.g. http://localhost:3000)
+// Ensure this base does NOT include a trailing `/api` so endpoints are built like: `${base}/api/...`
+const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 const api = axios.create({
   baseURL: BASE,
@@ -11,15 +13,15 @@ const api = axios.create({
 
 // attach token from localStorage if present
 api.interceptors.request.use((config) => {
-  try {
-    const raw = localStorage.getItem('app_auth_v1')
-    if (raw) {
-      const { token } = JSON.parse(raw)
-      if (token) config.headers = { ...config.headers, Authorization: `Bearer ${token}` }
+    try {
+      const raw = localStorage.getItem('app_auth_v1')
+      if (raw) {
+        const { token } = JSON.parse(raw)
+        if (token) config.headers.Authorization = `Bearer ${token}`
+      }
+    } catch (e) {
+      // ignore JSON parse errors
     }
-  } catch (e) {
-    // ignore
-  }
   return config
 })
 

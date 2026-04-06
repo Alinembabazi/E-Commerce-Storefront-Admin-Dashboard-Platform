@@ -58,7 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // normal user -> call backend
     try {
-      const res = await api.post('/auth/login', { email, password })
+      // Backend uses `/api/...` paths; keep baseURL without `/api` so we call the full path here
+      const res = await api.post('/api/auth/users/login', { email, password })
       // expected response { token: string, user: { role: 'USER' | 'ADMIN' } }
       const { token, user } = res.data
       const authState: AuthState = { token, role: user?.role ?? 'USER', isAuthenticated: true }
