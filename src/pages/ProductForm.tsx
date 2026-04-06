@@ -3,9 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import { getProduct, addProduct, updateProduct, getCategories } from '../services/productStorage'
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required').refine(val => val.trim().length > 0, 'Title cannot be empty'),
@@ -19,29 +19,20 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-const fetchCategories = async () => {
-  const { data } = await api.get('/api/categories')
-  return data
-}
-
-const fetchProduct = async (id: string) => {
-  const { data } = await api.get(`/api/products/${id}`)
-  return data
-}
-
 const ProductForm: React.FC = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = !!id
+  const queryClient = useQueryClient()
 
-  const { data: categories } = useQuery({
+  const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: fetchCategories,
+    queryFn: getCategories,
   })
 
   const { data: product, isLoading: isLoadingProduct } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => fetchProduct(id!),
+    queryFn: () => id ? getProduct(id) : null,
     enabled: isEdit,
   })
 
@@ -76,37 +67,38 @@ const ProductForm: React.FC = () => {
     setValue('images', newImages.length > 0 ? newImages : [''])
   }
 
-  const saveProduct = useMutation({
+  const saveProductMutation = useMutation({
     mutationFn: async (data: FormValues) => {
-      if (isEdit) {
-        const { data: res } = await api.put(`/api/products/${id}`, data)
-        return res
+      const cleanedData = {
+        ...data,
+        images: data.images.filter(img => img.trim() !== ''),
+      }
+      
+      if (isEdit && id) {
+        return updateProduct(id, cleanedData)
       } else {
-        const { data: res } = await api.post('/api/products', data)
-        return res
+        return addProduct(cleanedData)
       }
     },
     onSuccess: () => {
       toast.success(isEdit ? 'Product updated!' : 'Product created!')
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['adminProducts'] })
       navigate('/admin')
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Failed to save product')
+    onError: () => {
+      toast.error('Failed to save product')
     },
   })
 
   const onSubmit = (data: FormValues) => {
-    const cleanedData = {
-      ...data,
-      images: data.images.filter(img => img.trim() !== ''),
-    }
-    saveProduct.mutate(cleanedData)
+    saveProductMutation.mutate(data)
   }
 
   if (isEdit && isLoadingProduct) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
@@ -120,7 +112,7 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium mb-1">Title *</label>
           <input
             {...register('title')}
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {formState.errors.title && (
             <p className="text-red-500 text-sm mt-1">{formState.errors.title.message}</p>
@@ -131,7 +123,7 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium mb-1">Brand *</label>
           <input
             {...register('brand')}
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {formState.errors.brand && (
             <p className="text-red-500 text-sm mt-1">{formState.errors.brand.message}</p>
@@ -142,11 +134,11 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium mb-1">Category *</label>
           <select
             {...register('category')}
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Select category</option>
-            {categories?.map((cat: any) => (
-              <option key={cat._id} value={cat.name}>{cat.name}</option>
+            {categories.map((cat: any) => (
+              <option key={cat._id || cat.name} value={cat.name}>{cat.name}</option>
             ))}
           </select>
           {formState.errors.category && (
@@ -159,7 +151,7 @@ const ProductForm: React.FC = () => {
           <textarea
             {...register('description')}
             rows={4}
-            className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {formState.errors.description && (
             <p className="text-red-500 text-sm mt-1">{formState.errors.description.message}</p>
@@ -173,7 +165,7 @@ const ProductForm: React.FC = () => {
               type="number"
               step="0.01"
               {...register('price', { valueAsNumber: true })}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {formState.errors.price && (
               <p className="text-red-500 text-sm mt-1">{formState.errors.price.message}</p>
@@ -185,7 +177,7 @@ const ProductForm: React.FC = () => {
             <input
               type="number"
               {...register('stockQuantity', { valueAsNumber: true })}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {formState.errors.stockQuantity && (
               <p className="text-red-500 text-sm mt-1">{formState.errors.stockQuantity.message}</p>
@@ -200,13 +192,13 @@ const ProductForm: React.FC = () => {
               <input
                 {...register(`images.${idx}` as const)}
                 placeholder="https://..."
-                className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {images.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeImageField(idx)}
-                  className="text-red-500 px-2"
+                  className="text-red-500 px-2 hover:bg-red-50 rounded"
                 >
                   X
                 </button>
@@ -221,7 +213,7 @@ const ProductForm: React.FC = () => {
             + Add another image
           </button>
           {formState.errors.images && (
-            <p className="text-red-500 text-sm mt-1">{formState.errors.images.message || formState.errors.images.root?.message}</p>
+            <p className="text-red-500 text-sm mt-1">{formState.errors.images.message as string}</p>
           )}
         </div>
 
@@ -229,16 +221,16 @@ const ProductForm: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/admin')}
-            className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded hover:bg-gray-300"
+            className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={saveProduct.isPending}
-            className="flex-1 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400"
+            disabled={saveProductMutation.isPending}
+            className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
           >
-            {saveProduct.isPending ? 'Saving...' : isEdit ? 'Update Product' : 'Create Product'}
+            {saveProductMutation.isPending ? 'Saving...' : isEdit ? 'Update Product' : 'Create Product'}
           </button>
         </div>
       </form>

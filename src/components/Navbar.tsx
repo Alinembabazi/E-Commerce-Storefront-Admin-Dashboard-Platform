@@ -5,7 +5,7 @@ import { CartContext } from '../context/CartContext'
 
 const Navbar: React.FC = () => {
   const { state, logout } = useAuth()
-  const { state: cartState } = useContext(CartContext) ?? { state: { items: [], total: 0 } }
+  const cartContext = useContext(CartContext)
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
@@ -14,7 +14,7 @@ const Navbar: React.FC = () => {
     navigate('/')
   }
 
-  const cartItemCount = cartState?.items.reduce((sum: number, item: any) => sum + item.quantity, 0) ?? 0
+  const cartItemCount = cartContext?.state.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0
 
   return (
     <nav className="bg-gray-800 text-white">
@@ -31,6 +31,15 @@ const Navbar: React.FC = () => {
               Store
             </Link>
 
+            <Link to="/cart" className="hover:bg-gray-700 px-3 py-2 rounded relative">
+              Cart
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {cartItemCount}
+                </span>
+              )}
+            </Link>
+
             {state.isAuthenticated ? (
               <>
                 {state.role === 'ADMIN' && (
@@ -39,19 +48,9 @@ const Navbar: React.FC = () => {
                   </Link>
                 )}
                 {state.role === 'USER' && (
-                  <>
-                    <Link to="/cart" className="hover:bg-gray-700 px-3 py-2 rounded relative">
-                      Cart
-                      {cartItemCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {cartItemCount}
-                        </span>
-                      )}
-                    </Link>
-                    <Link to="/profile" className="hover:bg-gray-700 px-3 py-2 rounded">
-                      Profile
-                    </Link>
-                  </>
+                  <Link to="/profile" className="hover:bg-gray-700 px-3 py-2 rounded">
+                    Profile
+                  </Link>
                 )}
                 <button onClick={handleLogout} className="hover:bg-gray-700 px-3 py-2 rounded">
                   Logout
@@ -84,6 +83,10 @@ const Navbar: React.FC = () => {
               Store
             </Link>
 
+            <Link to="/cart" className="block hover:bg-gray-700 px-3 py-2 rounded" onClick={() => setIsMenuOpen(false)}>
+              Cart {cartItemCount > 0 && `(${cartItemCount})`}
+            </Link>
+
             {state.isAuthenticated ? (
               <>
                 {state.role === 'ADMIN' && (
@@ -92,14 +95,9 @@ const Navbar: React.FC = () => {
                   </Link>
                 )}
                 {state.role === 'USER' && (
-                  <>
-                    <Link to="/cart" className="block hover:bg-gray-700 px-3 py-2 rounded" onClick={() => setIsMenuOpen(false)}>
-                      Cart {cartItemCount > 0 && `(${cartItemCount})`}
-                    </Link>
-                    <Link to="/profile" className="block hover:bg-gray-700 px-3 py-2 rounded" onClick={() => setIsMenuOpen(false)}>
-                      Profile
-                    </Link>
-                  </>
+                  <Link to="/profile" className="block hover:bg-gray-700 px-3 py-2 rounded" onClick={() => setIsMenuOpen(false)}>
+                    Profile
+                  </Link>
                 )}
                 <button onClick={handleLogout} className="block w text-left hover:bg-gray-700 px-3 py-2 rounded">
                   Logout

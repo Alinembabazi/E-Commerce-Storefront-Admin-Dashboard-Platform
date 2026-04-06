@@ -1,62 +1,22 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useContext } from 'react'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import { getProducts, type Product } from '../services/productStorage'
 import { CartContext, type CartItem } from '../context/CartContext'
 
-interface Product {
-  _id: string
-  title: string
-  description: string
-  price: number
-  images: string[]
-  brand: string
-  category: string
-  stockQuantity: number
-}
-
-interface ApiResponse {
-  data?: Product[]
-  data2?: Product[]
-  products?: Product[]
-}
-
 const fetchProducts = async (): Promise<Product[]> => {
-  try {
-    const res = await api.get<ApiResponse>('/api/products')
-    let products = res.data
-    
-    if (Array.isArray(products)) {
-      return products
-    }
-    
-    if (products?.data && Array.isArray(products.data)) {
-      return products.data
-    }
-    
-    if (products?.data2 && Array.isArray(products.data2)) {
-      return products.data2
-    }
-    
-    if (products?.products && Array.isArray(products.products)) {
-      return products.products
-    }
-    
-    return []
-  } catch (error) {
-    console.error('API Error:', error)
-    throw error
-  }
+  return getProducts()
 }
 
 const Home: React.FC = () => {
   const { addItem } = useContext(CartContext)!
+  const queryClient = useQueryClient()
 
-  const { data: products, isLoading, error, refetch } = useQuery({
+  const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
-    retry: 1,
+    staleTime: 0,
   })
 
   const handleAddToCart = (product: Product) => {
@@ -68,7 +28,8 @@ const Home: React.FC = () => {
       image: product.images?.[0] || '',
     }
     addItem(item)
-    toast.success('Added to cart!')
+    toast.success(`${product.title} added to cart!`)
+    queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
   if (isLoading) {
@@ -80,55 +41,17 @@ const Home: React.FC = () => {
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
-        <div className="text-center">
-          <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <p className="text-red-500 text-lg mb-2">Failed to load products</p>
-          <p className="text-gray-500 text-sm mb-4">Make sure the backend server is running at http://localhost:3000</p>
-          <div className="flex gap-2 justify-center">
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Try Again
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Refresh Page
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!products || products.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
-        <svg className="w-20 h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-        </svg>
-        <p className="text-gray-500 text-lg">No products available</p>
-        <p className="text-gray-400 text-sm mt-1">Check back later for new products</p>
-      </div>
-    )
-  }
+  const displayProducts = products || []
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Product Catalog</h1>
-        <span className="text-gray-500 text-sm">{products.length} products</span>
+        <span className="text-gray-500 text-sm">{displayProducts.length} products</span>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map((product) => (
+        {displayProducts.map((product) => (
           <div key={product._id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
             <Link to={`/product/${product._id}`} className="block">
               <div className="aspect-square bg-gray-100 overflow-hidden">

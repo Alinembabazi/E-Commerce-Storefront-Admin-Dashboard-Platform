@@ -1,29 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import api from '../services/api'
+import { Link } from 'react-router-dom'
+import { getOrders, type Order } from '../services/productStorage'
 
-interface OrderItem {
-  productId: string
-  title: string
-  quantity: number
-  price: number
-}
-
-interface Order {
-  _id: string
-  items: OrderItem[]
-  totalAmount: number
-  status: string
-  paymentMethod: string
-  createdAt: string
-}
-
-const fetchOrders = async (): Promise<Order[]> => {
-  const { data } = await api.get('/api/orders/me')
-  return data
+const fetchOrders = (): Order[] => {
+  return getOrders()
 }
 
 const Profile: React.FC = () => {
-  const { data: orders, isLoading, error } = useQuery({
+  const { data: orders, isLoading } = useQuery({
     queryKey: ['userOrders'],
     queryFn: fetchOrders,
   })
@@ -31,38 +15,42 @@ const Profile: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">My Profile</h1>
-        <p className="text-red-500">Failed to load orders</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Orders</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">My Orders</h1>
+        <Link to="/" className="text-blue-600 hover:underline">
+          Continue Shopping
+        </Link>
+      </div>
       
       {orders?.length === 0 ? (
-        <p className="text-gray-500">No orders yet</p>
+        <div className="text-center py-16 bg-white rounded-lg shadow-md">
+          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          <p className="text-gray-500 text-lg mb-4">No orders yet</p>
+          <Link to="/" className="text-blue-600 hover:underline">
+            Start Shopping
+          </Link>
+        </div>
       ) : (
         <div className="space-y-4">
           {orders?.map((order) => (
             <div key={order._id} className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <p className="font-semibold">Order #{order._id.slice(-8)}</p>
+                  <p className="font-semibold text-lg">Order #{order._id.slice(-8)}</p>
                   <p className="text-sm text-gray-500">
-                    {new Date(order.createdAt).toLocaleDateString()}
+                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'Recently'}
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm ${
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
                   order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
                   order.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-800' :
@@ -74,17 +62,17 @@ const Profile: React.FC = () => {
               </div>
               
               <div className="border-t border-b py-4 mb-4">
-                {order.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between py-1">
-                    <span>{item.title} x {item.quantity}</span>
-                    <span>${(item.price * item.quantity).toFixed(2)}</span>
+                {order.items?.map((item, idx) => (
+                  <div key={idx} className="flex justify-between py-2">
+                    <span className="text-gray-600">{item.title} x {item.quantity}</span>
+                    <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
               
-              <div className="flex justify-between font-semibold">
-                <span>Total: ${order.totalAmount.toFixed(2)}</span>
-                <span className="text-gray-500 text-sm">{order.paymentMethod.replace('_', ' ')}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-xl font-bold">Total: ${order.totalAmount?.toFixed(2) || '0.00'}</span>
+                <span className="text-gray-500 text-sm">{order.paymentMethod?.replace('_', ' ') || 'Payment'}</span>
               </div>
             </div>
           ))}

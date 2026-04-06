@@ -1,12 +1,10 @@
-import { useContext } from 'react'
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import { addOrder } from '../services/productStorage'
 import { CartContext } from '../context/CartContext'
 
 const shippingSchema = z.object({
@@ -19,9 +17,6 @@ const shippingSchema = z.object({
 
 const paymentSchema = z.object({
   paymentMethod: z.enum(['CREDIT_CARD', 'PAYPAL', 'MOBILE_MONEY', 'CASH_ON_DELIVERY']),
-  cardNumber: z.string().optional(),
-  expiryDate: z.string().optional(),
-  cvv: z.string().optional(),
 })
 
 type ShippingForm = z.infer<typeof shippingSchema>
@@ -31,6 +26,7 @@ const Checkout: React.FC = () => {
   const { state, clearCart } = useContext(CartContext)!
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
+  const [isProcessing, setIsProcessing] = useState(false)
   
   const shippingForm = useForm<ShippingForm>({
     resolver: zodResolver(shippingSchema),
@@ -45,43 +41,42 @@ const Checkout: React.FC = () => {
     },
   })
 
-  const createOrder = useMutation({
-    mutationFn: async (orderData: any) => {
-      const { data } = await api.post('/api/orders', orderData)
-      return data
-    },
-    onSuccess: () => {
-      clearCart()
-      toast.success('Order placed successfully!')
-      navigate('/profile')
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Failed to place order')
-    },
-  })
-
   const onShippingSubmit = (_data: ShippingForm) => {
     setStep(2)
   }
 
   const onPaymentSubmit = (data: PaymentForm) => {
-    const orderData = {
-      items: state.items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      shipping: {
-        fullName: shippingForm.getValues('fullName'),
-        address: shippingForm.getValues('address'),
-        city: shippingForm.getValues('city'),
-        postalCode: shippingForm.getValues('postalCode') || '',
-        phone: shippingForm.getValues('phone'),
-      },
-      paymentMethod: data.paymentMethod,
-      totalAmount: state.total,
-    }
-    createOrder.mutate(orderData)
+    setIsProcessing(true)
+    
+    setTimeout(() => {
+      try {
+        const shipping = shippingForm.getValues()
+        
+        addOrder({
+          user: { 
+            name: shipping.fullName, 
+            email: 'customer@example.com' 
+          },
+          items: state.items.map(item => ({
+            productId: item.productId,
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          totalAmount: state.total,
+          status: 'PENDING',
+          paymentMethod: data.paymentMethod,
+        })
+        
+        clearCart()
+        toast.success('Order placed successfully!')
+        navigate('/profile')
+      } catch (error) {
+        toast.error('Failed to place order')
+      } finally {
+        setIsProcessing(false)
+      }
+    }, 1500)
   }
 
   if (state.items.length === 0) {
@@ -90,6 +85,9 @@ const Checkout: React.FC = () => {
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>
         <div className="text-center py-16">
           <p className="text-gray-500 mb-4">Your cart is empty</p>
+          <button onClick={() => navigate('/')} className="text-blue-600 hover:underline">
+            Continue Shopping
+          </button>
         </div>
       </div>
     )
@@ -120,7 +118,7 @@ const Checkout: React.FC = () => {
               <label className="block text-sm font-medium mb-1">Full Name *</label>
               <input
                 {...shippingForm.register('fullName')}
-                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {shippingForm.formState.errors.fullName && (
                 <p className="text-red-500 text-sm mt-1">{shippingForm.formState.errors.fullName.message}</p>
@@ -131,7 +129,7 @@ const Checkout: React.FC = () => {
               <label className="block text-sm font-medium mb-1">Address *</label>
               <input
                 {...shippingForm.register('address')}
-                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {shippingForm.formState.errors.address && (
                 <p className="text-red-500 text-sm mt-1">{shippingForm.formState.errors.address.message}</p>
@@ -143,7 +141,7 @@ const Checkout: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">City *</label>
                 <input
                   {...shippingForm.register('city')}
-                  className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {shippingForm.formState.errors.city && (
                   <p className="text-red-500 text-sm mt-1">{shippingForm.formState.errors.city.message}</p>
@@ -154,7 +152,7 @@ const Checkout: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">Postal Code</label>
                 <input
                   {...shippingForm.register('postalCode')}
-                  className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -164,7 +162,7 @@ const Checkout: React.FC = () => {
               <input
                 {...shippingForm.register('phone')}
                 placeholder="1234567890"
-                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {shippingForm.formState.errors.phone && (
                 <p className="text-red-500 text-sm mt-1">{shippingForm.formState.errors.phone.message}</p>
@@ -174,7 +172,7 @@ const Checkout: React.FC = () => {
 
           <button
             type="submit"
-            className="mt-6 w-full bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700"
+            className="mt-6 w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Continue to Payment
           </button>
@@ -187,7 +185,7 @@ const Checkout: React.FC = () => {
           
           <div className="space-y-3 mb-6">
             {(['CREDIT_CARD', 'PAYPAL', 'MOBILE_MONEY', 'CASH_ON_DELIVERY'] as const).map((method) => (
-              <label key={method} className="flex items-center p-3 border rounded cursor-pointer hover:bg-gray-50">
+              <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                 <input
                   type="radio"
                   {...paymentForm.register('paymentMethod')}
@@ -203,16 +201,16 @@ const Checkout: React.FC = () => {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded hover:bg-gray-300"
+              className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
             >
               Back
             </button>
             <button
               type="submit"
-              disabled={createOrder.isPending}
-              className="flex-1 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400"
+              disabled={isProcessing}
+              className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
             >
-              {createOrder.isPending ? 'Processing...' : 'Place Order'}
+              {isProcessing ? 'Processing...' : 'Place Order'}
             </button>
           </div>
         </form>
@@ -222,8 +220,8 @@ const Checkout: React.FC = () => {
         <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
         {state.items.map((item) => (
           <div key={item.productId} className="flex justify-between py-2 border-b">
-            <span>{item.title} x {item.quantity}</span>
-            <span>${(item.price * item.quantity).toFixed(2)}</span>
+            <span className="text-gray-600">{item.title} x {item.quantity}</span>
+            <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
           </div>
         ))}
         <div className="flex justify-between font-bold text-xl mt-4">

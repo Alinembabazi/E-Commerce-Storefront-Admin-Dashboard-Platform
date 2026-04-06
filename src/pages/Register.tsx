@@ -1,11 +1,10 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import { AuthContext } from '../context/AuthContext'
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').refine(val => val.trim().length > 0, 'Name cannot be empty'),
@@ -19,28 +18,21 @@ type FormValues = z.infer<typeof schema>
 
 const Register: React.FC = () => {
   const navigate = useNavigate()
+  const { register: registerUser } = useContext(AuthContext)!
 
-  const { register, handleSubmit, formState } = useForm<FormValues>({
+  const { register: registerField, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: 'onBlur',
   })
 
-  const registerUser = useMutation({
-    mutationFn: async (data: FormValues) => {
-      const { data: res } = await api.post('/api/users/register', data)
-      return res
-    },
-    onSuccess: () => {
-      toast.success('Registration successful! Please login.')
-      navigate('/login')
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Registration failed')
-    },
-  })
-
-  const onSubmit = (data: FormValues) => {
-    registerUser.mutate(data)
+  const onSubmit = async (data: FormValues) => {
+    try {
+      await registerUser({ name: data.name, email: data.email, password: data.password, phone: data.phone, address: data.address })
+      toast.success('Registration successful!')
+      navigate('/')
+    } catch (err: any) {
+      toast.error(err?.message || 'Registration failed')
+    }
   }
 
   return (
@@ -50,7 +42,7 @@ const Register: React.FC = () => {
         <div>
           <label className="block text-sm font-medium mb-1">Name *</label>
           <input
-            {...register('name')}
+            {...registerField('name')}
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {formState.errors.name && (
@@ -62,7 +54,7 @@ const Register: React.FC = () => {
           <label className="block text-sm font-medium mb-1">Email *</label>
           <input
             type="email"
-            {...register('email')}
+            {...registerField('email')}
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {formState.errors.email && (
@@ -74,7 +66,7 @@ const Register: React.FC = () => {
           <label className="block text-sm font-medium mb-1">Password *</label>
           <input
             type="password"
-            {...register('password')}
+            {...registerField('password')}
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {formState.errors.password && (
@@ -85,7 +77,7 @@ const Register: React.FC = () => {
         <div>
           <label className="block text-sm font-medium mb-1">Phone *</label>
           <input
-            {...register('phone')}
+            {...registerField('phone')}
             placeholder="1234567890"
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -97,7 +89,7 @@ const Register: React.FC = () => {
         <div>
           <label className="block text-sm font-medium mb-1">Address</label>
           <textarea
-            {...register('address')}
+            {...registerField('address')}
             className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
           />
@@ -105,10 +97,9 @@ const Register: React.FC = () => {
 
         <button
           type="submit"
-          disabled={registerUser.isPending}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400"
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700"
         >
-          {registerUser.isPending ? 'Creating Account...' : 'Register'}
+          Register
         </button>
       </form>
       
